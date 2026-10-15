@@ -1,0 +1,1 @@
+{"name":"@loan-monitoring/api-client","version":"0.1.0","type":"module","exports":"./src/client.ts","scripts":{"test":"node --test"}}

@@ -1,0 +1,48 @@
+openapi: 3.1.0
+info:
+  title: Loan Monitoring API
+  version: 1.0.0
+  description: Versioned API. Breaking changes use a new /api/v2 prefix; v1 deprecations will include Sunset and Deprecation headers with at least six months notice.
+servers: [{url: http://localhost:8000/api/v1}]
+paths:
+  /auth/login:
+    post:
+      summary: User login (web session or mobile bearer token)
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Credentials'}}}}
+      responses: {'200': {description: Authenticated}, '422': {description: Invalid credentials}}
+  /auth/admin/login:
+    post:
+      summary: Administrator login; public registration is not available
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Credentials'}}}}
+      responses: {'200': {description: Authenticated admin}, '422': {description: Invalid credentials}}
+  /auth/me: {get: {security: [{sanctum: []}], responses: {'200': {description: Current user}}}}
+  /auth/logout: {post: {security: [{sanctum: []}], responses: {'200': {description: Revoked token or invalidated session}}}}
+  /admin/dashboard: {get: {security: [{sanctum: []}], responses: {'200': {description: Admin metrics}}}}
+  /admin/users:
+    get: {security: [{sanctum: []}], parameters: [{in: query, name: search, schema: {type: string}}, {in: query, name: role, schema: {type: string, enum: [user, admin]}}, {in: query, name: status, schema: {type: boolean}}, {in: query, name: page, schema: {type: integer}}], responses: {'200': {description: Paginated users}}}
+    post: {security: [{sanctum: []}], responses: {'201': {description: Created user}}}
+  /admin/users/{id}: {get: {security: [{sanctum: []}], responses: {'200': {description: User detail}}}, put: {security: [{sanctum: []}], responses: {'200': {description: Updated user}}}, delete: {security: [{sanctum: []}], responses: {'204': {description: Deleted}}}}
+  /admin/users/{id}/status: {patch: {security: [{sanctum: []}], responses: {'200': {description: Updated account status}}}}
+  /admin/catalog/{kind}:
+    get: {security: [{sanctum: []}], parameters: [{in: path, name: kind, required: true, schema: {type: string, enum: [loan-categories, down-payment-rates, loan-interest-rates, penalties]}}, {in: query, name: search, schema: {type: string}}, {in: query, name: per_page, schema: {type: integer, maximum: 100}}], responses: {'200': {description: Paginated loan setup records}}}
+    post: {security: [{sanctum: []}], responses: {'201': {description: Created loan setup record}, '422': {description: Invalid record}}}
+  /admin/catalog/{kind}/{record}:
+    put: {security: [{sanctum: []}], responses: {'200': {description: Updated loan setup record}, '422': {description: Invalid record}}}
+    delete: {security: [{sanctum: []}], responses: {'204': {description: Deleted}, '409': {description: Record is used by a loan}}}
+  /admin/loans:
+    get: {security: [{sanctum: []}], parameters: [{in: query, name: search, schema: {type: string}}, {in: query, name: loan_category_id, schema: {type: integer}}, {in: query, name: page, schema: {type: integer}}], responses: {'200': {description: Paginated loans}}}
+    post: {security: [{sanctum: []}], responses: {'201': {description: Created loan with generated ledger}, '422': {description: Invalid loan}}}
+  /admin/loans/{id}:
+    get: {security: [{sanctum: []}], responses: {'200': {description: Loan and installment schedule}}}
+    put: {security: [{sanctum: []}], responses: {'200': {description: Updated loan and regenerated unpaid schedule}, '409': {description: Loan already has a payment}}}
+    delete: {security: [{sanctum: []}], responses: {'204': {description: Deleted loan and ledger}}}
+  /admin/loan-ledgers/{id}/payment:
+    post: {security: [{sanctum: []}], requestBody: {required: true, content: {multipart/form-data: {schema: {type: object, required: [payment_date, payment_reference], properties: {payment_date: {type: string, format: date}, payment_reference: {type: string, format: binary}}}}}}, responses: {'200': {description: Recorded payment}}}
+  /admin/loan-ledgers/{id}/payment-reference:
+    get: {security: [{sanctum: []}], responses: {'200': {description: Private payment reference image}}}
+  /user/dashboard: {get: {security: [{sanctum: []}], responses: {'200': {description: User dashboard}}}}
+  /user/profile: {get: {security: [{sanctum: []}], responses: {'200': {description: Own profile}}}, put: {security: [{sanctum: []}], responses: {'200': {description: Updated own profile}}}}
+components:
+  securitySchemes: {sanctum: {type: http, scheme: bearer}}
+  schemas:
+    Credentials: {type: object, required: [email, password], properties: {email: {type: string, format: email}, password: {type: string, format: password}}}
